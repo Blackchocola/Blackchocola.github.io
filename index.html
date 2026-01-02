@@ -1119,11 +1119,11 @@ new Vue({
       essayData: this.essayData,
       lastTime: new Date().getTime()
   };
-  localStorage.setItem('qsa_v13_progress', JSON.stringify(progress));
+  localStorage.setItem('qsa_progress', JSON.stringify(progress));
 },
 
   loadProgress() {
-    const saved = localStorage.getItem('qsa_v13_progress');
+    const saved = localStorage.getItem('qsa_progress');
     if (saved) {
         const data = JSON.parse(saved);
         this.view = data.view;
@@ -1261,3 +1261,4 @@ getListByModule() {
 </script>
 </body>
 </html>
+
