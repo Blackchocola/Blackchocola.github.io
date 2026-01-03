@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>加油站岗位技能考核系统 V1.4</title>
+    <title>加油站岗位技能考核系统 V1.5 (增强版)</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <style>
         :root { --primary: #2563eb; --success: #059669; --error: #dc2626; --bg: #f1f5f9; --text: #1e293b; }
@@ -18,7 +18,12 @@
         .mode-tabs { display: flex; background: #e2e8f0; padding: 4px; border-radius: 8px; margin-bottom: 15px; }
         .tab { flex: 1; text-align: center; padding: 10px; font-size: 0.9rem; cursor: pointer; border-radius: 6px; }
         .tab.active { background: white; color: var(--primary); font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .q-block { background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
+        .q-block { background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 5px; border: 1px solid #e2e8f0; line-height: 1.6; }
+        
+        /* 新增：背题模式的练习输入框 */
+        .study-input { width: 100%; padding: 10px; border: 1px dashed #cbd5e1; border-radius: 6px; background: #fffbeb; font-size: 0.9rem; margin-bottom: 15px; box-sizing: border-box; resize: vertical; min-height: 60px; color: #555; }
+        .study-input:focus { outline: none; border-color: var(--primary); background: #fff; }
+
         .input-box { width: 100%; padding: 12px; border: 2px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 1rem; margin-top: 5px; }
         .input-correct { border-color: var(--success); background: #ecfdf5; }
         .input-error { border-color: var(--error); background: #fef2f2; }
@@ -30,22 +35,43 @@
         .f-btn { flex: 1; padding: 14px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
         .f-blue { background: var(--primary); color: white; }
         .f-gray { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+        /* 开关样式 */
+        .switch-container { display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #e2e8f0;}
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(24px); }
     </style>
 </head>
 <body>
 
 <div id="app" class="container">
-    <h2 class="header-title">加油站技能考核系统 V1.4</h2>
+    <h2 class="header-title">加油站技能考核系统 V1.5</h2>
     <div class="nav-path">📍 {{ navPath }}</div>
 
     <div v-if="state === 'idle'" class="menu-list">
-      
+        
         <template v-if="view === 'main'">
-          <div v-if="isRecoverable" @click="loadProgress" 
-          style="background: #fff7ed; border: 1px solid #fb923c; color: #ea580c; padding: 15px; border-radius: 12px; margin-bottom: 20px; cursor: pointer; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-         <div style="font-weight: bold; font-size: 1rem; margin-bottom: 4px;">📍 检测到上次练习进度</div>
-         <div style="font-size: 0.85rem; opacity: 0.9;">点击此处立即回到上次位置</div>
-          </div>
+            <div v-if="isRecoverable" @click="loadProgress" 
+                style="background: #fff7ed; border: 1px solid #fb923c; color: #ea580c; padding: 15px; border-radius: 12px; margin-bottom: 20px; cursor: pointer; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="font-weight: bold; font-size: 1rem; margin-bottom: 4px;">📍 检测到上次练习进度</div>
+                <div style="font-size: 0.85rem; opacity: 0.9;">点击此处立即回到上次位置</div>
+            </div>
+            
+            <div class="switch-container">
+                <div>
+                    <b>🔀 随机乱序模式</b>
+                    <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">开启后题目顺序将打乱</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" v-model="isRandom">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
             <button class="menu-btn" @click="go('menu_a')"><b>A. 突发应急处置</b> <span>❯</span></button>
             <button class="menu-btn" @click="go('menu_b')"><b>B. 应知应会</b> <span>❯</span></button>
             <button class="menu-btn" @click="go('menu_c')"><b>C. 加油机操作规程</b> <span>❯</span></button>
@@ -89,7 +115,7 @@
             <div class="tab" :class="{active: subMode === 'study'}" @click="subMode = 'study'">背题模式</div>
             <div class="tab" :class="{active: subMode === 'quiz'}" @click="subMode = 'quiz'; resetQuiz()">填空模式</div>
         </div>
-        <!--添加进度条-->
+        
         <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px; display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 5px;">
           <span>进度：{{ (state === 'choice' ? curChoiceIdx : currentIdx) + 1 }} / {{ totalInModule }}</span>
           <span>
@@ -99,7 +125,7 @@
           </span>
       </div>
 
-        <h3 style="color:var(--primary); margin-bottom:15px;">{{ currentQ.title || currentQ.topic }}</h3>
+        <h3 style="color:var(--primary); margin-bottom:15px;">{{ currentQ.title || currentQ.topic }} <span v-if="isRandom" style="font-size:0.7em; color:#999; font-weight:normal;">(随机)</span></h3>
 
         <div v-if="state === 'choice'">
             <p><b>Q:</b> {{ currentQ.question }}</p>
@@ -110,11 +136,24 @@
 
         <div v-else>
             <div v-for="(item, idx) in activeAnswers" :key="idx">
-                <div v-if="subMode === 'study'" class="q-block">{{ idx+1 }}. {{ item }}</div>
+                <div v-if="subMode === 'study'">
+                    <div class="q-block">{{ idx+1 }}. {{ item }}</div>
+                    <textarea 
+                        class="study-input" 
+                        placeholder="默写练习区（选填，用于加强记忆，不计分）..." 
+                        v-model="studyInputs[idx]"
+                    ></textarea>
+                </div>
                 <div v-else>
                     <p style="margin:10px 0 5px; font-size:0.9rem; color:#64748b;">填空项 {{ idx+1 }}：</p>
                     <input v-model="userInputs[idx]" :disabled="isSubmitted" class="input-box" :class="getInputClass(idx)" placeholder="请输入关键内容...">
-                    <div v-if="isSubmitted && !results[idx]" class="ans-msg">标准答案：{{ item }}</div>
+                    <div v-if="isSubmitted && !results[idx]" class="ans-msg">
+                        <span v-if="fuzzyScores[idx]" style="color:#b45309">⚠️ 相似度: {{ (fuzzyScores[idx]*100).toFixed(0) }}% (不足90%)<br></span>
+                        标准答案：{{ item }}
+                    </div>
+                    <div v-else-if="isSubmitted && results[idx] && fuzzyScores[idx] < 1" style="color:#059669; font-size:0.8rem; margin-top:3px;">
+                        ✔️ 模糊匹配通过 (相似度: {{ (fuzzyScores[idx]*100).toFixed(0) }}%)
+                    </div>
                 </div>
             </div>
             
@@ -138,7 +177,9 @@
 </div>
 
 <script>
-// --- 完整补全的数据库 ---
+// --- 数据部分保持不变，为节省篇幅略去数据定义部分，使用原有的数据变量 ---
+// 您在此处保留原有的 essayData, machineData, specialData, emergencyData, choiceList 定义
+// -------------------------------------------------------------------
 const essayData = [
     { 
         title: "加油工岗位职责", 
@@ -963,14 +1004,23 @@ new Vue({
         view: 'main', state: 'idle', subMode: 'study',
         currentModule: '', currentQ: {}, 
         curChoiceIdx: 0, 
-        currentIdx: 0, // 【新增】用于记录当前题目的索引
+        currentIdx: 0, 
+        // 新增：乱序开关
+        isRandom: false,
+        // 新增：工作列表，用于存储当前（可能是乱序后）的题目列表
+        workingList: [],
         stats: {
           total: 0,
           correct: 0,
           wrong: 0
         },
         isRecoverable: false,
-        userInputs: [], results: [], supplyInput: '', supplyCorrect: false,
+        userInputs: [], 
+        // 新增：背题模式的输入数组
+        studyInputs: [],
+        // 新增：模糊匹配分数
+        fuzzyScores: [],
+        results: [], supplyInput: '', supplyCorrect: false,
         isSubmitted: false, tempSelect: null,
         essayData, specialData, machineData, choiceList, emergencyData
     },
@@ -980,13 +1030,9 @@ new Vue({
             return (map[this.view] || '主页') + (this.state !== 'idle' ? ' > 正在练习' : '');
         },
         totalInModule() {
-          if (this.state === 'choice') return this.choiceList.length;
-          if (this.currentModule === 'emergency') return this.emergencyData.length;
-          if (this.currentModule === 'machine') return this.machineData.length;
-          if (this.currentModule === 'special') return this.specialData.length;
-          if (this.currentModule === 'essay') return this.essayData.length;
-          return 0;
-      },
+            // 现在总是基于 workingList 计算长度
+            return this.workingList.length;
+        },
         activeAnswers() {
             return this.currentQ.items || this.currentQ.measures || [];
         }
@@ -994,7 +1040,50 @@ new Vue({
     methods: {
         go(v) { this.view = v; this.state = 'idle'; },
         goHome() { this.view = 'main'; this.state = 'idle'; },
-        //修改并集成上一题功能
+        
+        // 数组打乱算法 (Fisher-Yates)
+        shuffleArray(arr) {
+            let newArr = JSON.parse(JSON.stringify(arr));
+            for (let i = newArr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+            }
+            return newArr;
+        },
+
+        // 模糊匹配算法：计算文本相似度
+        calculateSimilarity(s1, s2) {
+            // 1. 预处理：去除标点符号和空格，统一转小写
+            const clean = (str) => str.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').toLowerCase();
+            const a = clean(s1);
+            const b = clean(s2);
+            
+            if (a.length === 0 || b.length === 0) return 0;
+            if (a === b) return 1;
+
+            // 2. Levenshtein Distance 算法
+            const matrix = [];
+            for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
+            for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
+
+            for (let i = 1; i <= b.length; i++) {
+                for (let j = 1; j <= a.length; j++) {
+                    if (b.charAt(i - 1) == a.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1, 
+                            matrix[i][j - 1] + 1,     
+                            matrix[i - 1][j] + 1      
+                        );
+                    }
+                }
+            }
+            const distance = matrix[b.length][a.length];
+            const maxLength = Math.max(a.length, b.length);
+            return 1 - (distance / maxLength);
+        },
+
         goBack() {
           if (this.state !== 'idle') {
             this.saveCurrentState();
@@ -1002,93 +1091,118 @@ new Vue({
                   if (this.curChoiceIdx > 0) {
                       this.curChoiceIdx--;
                       this.loadCurrentState();
-                      //this.currentQ = this.choiceList[this.curChoiceIdx];
-                      //this.isSubmitted = false;
-                      //this.tempSelect = null;
                   } else { this.state = 'idle'; }
               } else {
-                  let list = this.getListByModule(); // 封装获取列表逻辑
                   if (this.currentIdx > 0) {
                       this.currentIdx--;
                       this.loadCurrentState();
-                      //this.currentQ = JSON.parse(JSON.stringify(list[this.currentIdx]));
-                      //this.resetQuiz();
                   } else { this.state = 'idle'; }
               }
           } else {
-              // 原有菜单返回逻辑
               if (this.view.includes('_')) {
                   this.view = this.view.split('_').slice(0,-1).join('_') || 'main';
               } else { this.view = 'main'; }
-          }this.saveProgress();
-          this.saveCurrentState();
+          }
+          this.saveProgress();
       },
-      // 辅助函数
-      getListByModule() {
-          if(this.currentModule === 'emergency') return this.emergencyData;
-          if(this.currentModule === 'machine') return this.machineData;
-          if(this.currentModule === 'special') return this.specialData;
-          if(this.currentModule === 'essay') return this.essayData;
+
+      // 获取当前模式的原始数据源
+      getSourceData(mod) {
+          if(mod === 'emergency') return this.emergencyData;
+          if(mod === 'machine') return this.machineData;
+          if(mod === 'special') return this.specialData;
+          if(mod === 'essay') return this.essayData;
           return [];
       },
-        startTask(mod, mode, idx) {
+
+      startTask(mod, mode, idx) {
             this.currentModule = mod;
             this.subMode = mode;
             this.state = 'active';
-            this.currentIdx = idx; // 【新增】记录当前是从第几题开始的
             
-            // 保持原有的赋值逻辑不变
-            if(mod === 'emergency') this.currentQ = JSON.parse(JSON.stringify(this.emergencyData[idx]));
-            else if(mod === 'machine') this.currentQ = JSON.parse(JSON.stringify(this.machineData[idx]));
-            else if(mod === 'special') this.currentQ = JSON.parse(JSON.stringify(this.specialData[idx]));
-            else if(mod === 'essay') this.currentQ = JSON.parse(JSON.stringify(this.essayData[idx]));
-            
+            // 初始化 workingList：如果是乱序模式则打乱，否则使用原顺序
+            let source = this.getSourceData(mod);
+            if(this.isRandom) {
+                this.workingList = this.shuffleArray(source);
+                this.currentIdx = 0; // 乱序后从第一题开始
+            } else {
+                this.workingList = JSON.parse(JSON.stringify(source));
+                this.currentIdx = idx;
+            }
+
+            this.currentQ = JSON.parse(JSON.stringify(this.workingList[this.currentIdx]));
             this.resetQuiz();
         },
+
         startChoice() {
-            this.state = 'choice'; this.curChoiceIdx = 0;
-            this.currentQ = this.choiceList[0];
+            this.state = 'choice'; 
+            this.curChoiceIdx = 0;
+            
+            // 选择题同样支持乱序
+            if(this.isRandom) {
+                this.workingList = this.shuffleArray(this.choiceList);
+            } else {
+                this.workingList = JSON.parse(JSON.stringify(this.choiceList));
+            }
+            
+            this.currentQ = this.workingList[0];
             this.isSubmitted = false; this.tempSelect = null;
         },
-        //修改选择题统计
+
         handleSelect(k) {
           if(this.isSubmitted) return;
           this.tempSelect = k; 
           this.isSubmitted = true;
-          this.stats.total++; // 总练习数增加
+          this.stats.total++; 
           if (k === this.currentQ.answer) {
               this.stats.correct++;
           } else {
               this.stats.wrong++;
           }
-          this.saveCurrentState(); // 保存當前題狀態到列表
-          this.saveProgress();    // 立即寫入 localStorage
+          this.saveCurrentState(); 
+          this.saveProgress();    
       },
+
         getOptClass(k) {
             if(!this.isSubmitted) return '';
             return k === this.currentQ.answer ? 'opt-correct' : (this.tempSelect === k ? 'opt-error' : '');
         },
+
         resetQuiz() {
             this.isSubmitted = false;
+            // 清空填空题输入
             this.userInputs = new Array(this.activeAnswers.length).fill('');
+            // 清空背题模式输入
+            this.studyInputs = new Array(this.activeAnswers.length).fill('');
             this.results = new Array(this.activeAnswers.length).fill(false);
+            this.fuzzyScores = new Array(this.activeAnswers.length).fill(0);
             this.supplyInput = '';
         },
-        //修改填空题统计
+
         submit() {
           this.isSubmitted = true;
-          this.stats.total++; // 总练习数增加
+          this.stats.total++; 
           
           let isAllCorrect = true;
           this.activeAnswers.forEach((ans, i) => {
               const val = (this.userInputs[i] || "").trim();
-              const correct = val.length >= 4 && ans.includes(val);
-              this.results[i] = correct;
-              if (!correct) isAllCorrect = false;
+              
+              // 使用模糊匹配算法
+              const similarity = this.calculateSimilarity(val, ans);
+              this.fuzzyScores[i] = similarity;
+
+              // 判定逻辑：长度>=4 且 (包含关键字 或 相似度>0.9)
+              const isMatch = (val.length >= 2 && ans.includes(val)) || similarity >= 0.9;
+              
+              this.results[i] = isMatch;
+              // 更新：为了显示，将分值存入 Vue 响应式数组
+              this.$set(this.fuzzyScores, i, similarity);
+
+              if (!isMatch) isAllCorrect = false;
           });
           
-          // 如果有应急物资项，也需检查
           if(this.currentQ.supplies) {
+              // 物资也进行简单的包含匹配，不适用过于复杂的模糊逻辑以免误判
               this.supplyCorrect = this.currentQ.supplies.some(s => this.supplyInput.includes(s));
               if (!this.supplyCorrect) isAllCorrect = false;
           }
@@ -1101,7 +1215,7 @@ new Vue({
           this.saveCurrentState();
           this.saveProgress();
       },
-        // 在 methods 对象中添加以下方法
+
   saveProgress() {
     const progress = {
       view: this.view,
@@ -1109,21 +1223,17 @@ new Vue({
       currentModule: this.currentModule,
       currentIdx: this.currentIdx,
       curChoiceIdx: this.curChoiceIdx,
-      // 【新增】保存統計數據
       stats: this.stats, 
-      // 【新增】保存帶有用戶回答內容的數據源
-      choiceList: this.choiceList,
-      emergencyData: this.emergencyData,
-      machineData: this.machineData,
-      specialData: this.specialData,
-      essayData: this.essayData,
+      isRandom: this.isRandom,
+      // 关键：保存当前的题目顺序列表，防止乱序模式下刷新后顺序变了
+      workingList: this.workingList, 
       lastTime: new Date().getTime()
   };
-  localStorage.setItem('qsa_progress', JSON.stringify(progress));
+  localStorage.setItem('qsa_v15_progress', JSON.stringify(progress));
 },
 
   loadProgress() {
-    const saved = localStorage.getItem('qsa_progress');
+    const saved = localStorage.getItem('qsa_v15_progress');
     if (saved) {
         const data = JSON.parse(saved);
         this.view = data.view;
@@ -1131,128 +1241,101 @@ new Vue({
         this.currentModule = data.currentModule;
         this.currentIdx = data.currentIdx;
         this.curChoiceIdx = data.curChoiceIdx;
+        this.isRandom = data.isRandom || false;
 
-        // 【新增】還原統計數據
         if (data.stats) this.stats = data.stats;
+        
+        // 恢复工作列表
+        if (data.workingList) this.workingList = data.workingList;
 
-        // 【新增】還原所有題庫數據（包含用戶之前在填空題填過的內容）
-        if (data.choiceList) this.choiceList = data.choiceList;
-        if (data.emergencyData) this.emergencyData = data.emergencyData;
-        if (data.machineData) this.machineData = data.machineData;
-        if (data.specialData) this.specialData = data.specialData;
-        if (data.essayData) this.essayData = data.essayData;
-
-        // 執行加載當前題目邏輯
         this.loadCurrentState(); 
         this.isRecoverable = false;
     }
 },
- // 保存當前題目的輸入狀態到內存
+
 saveCurrentState() {
-  if (this.state === 'choice') {
-      // 保存選擇題：選中的選項和提交狀態
-      this.choiceList[this.curChoiceIdx].userAnswer = this.tempSelect;
-      this.choiceList[this.curChoiceIdx].userSubmitted = this.isSubmitted;
-  } else {
-      // 保存填空題：輸入數組、物資輸入、提交狀態
-      let list = this.getListByModule();
-      let q = list[this.currentIdx];
-      q.userInputs = [...this.userInputs]; 
-      q.userSupply = this.supplyInput;
-      q.userSubmitted = this.isSubmitted;
-  }
+    // 根据当前模式，将状态保存到 workingList 中对应的题目对象里
+    if (this.state === 'choice') {
+        if(this.workingList[this.curChoiceIdx]) {
+            this.workingList[this.curChoiceIdx].userAnswer = this.tempSelect;
+            this.workingList[this.curChoiceIdx].userSubmitted = this.isSubmitted;
+        }
+    } else {
+        if(this.workingList[this.currentIdx]) {
+            let q = this.workingList[this.currentIdx];
+            q.userInputs = [...this.userInputs]; 
+            q.studyInputs = [...this.studyInputs]; // 保存背题模式输入
+            q.userSupply = this.supplyInput;
+            q.userSubmitted = this.isSubmitted;
+        }
+    }
 },
 
-// 載入（還原）當前題目的輸入狀態
 loadCurrentState() {
-  if (this.state === 'choice') {
-      let q = this.choiceList[this.curChoiceIdx];
-      this.currentQ = q;
-      this.tempSelect = q.userAnswer || null;
-      this.isSubmitted = q.userSubmitted || false;
-  } else {
-      let list = this.getListByModule();
-      let q = list[this.currentIdx];
-      // 深拷貝題目數據
-      this.currentQ = JSON.parse(JSON.stringify(q));
-      
-      // 如果有之前填寫的內容，則恢復
-      if (q.userInputs) {
-          this.userInputs = [...q.userInputs];
-          this.supplyInput = q.userSupply || "";
-          this.isSubmitted = q.userSubmitted || false;
-          // 如果已提交，手動觸發校驗顯示顏色
-          if (this.isSubmitted) this.reValidate();
-      } else {
-          this.resetQuiz(); // 沒填過則重置
-      }
-  }
+    if (this.state === 'choice') {
+        let q = this.workingList[this.curChoiceIdx];
+        this.currentQ = q;
+        this.tempSelect = q.userAnswer || null;
+        this.isSubmitted = q.userSubmitted || false;
+    } else {
+        let q = this.workingList[this.currentIdx];
+        this.currentQ = JSON.parse(JSON.stringify(q));
+        
+        if (q.userInputs) {
+            this.userInputs = [...q.userInputs];
+            this.studyInputs = q.studyInputs ? [...q.studyInputs] : new Array(this.activeAnswers.length).fill('');
+            this.supplyInput = q.userSupply || "";
+            this.isSubmitted = q.userSubmitted || false;
+            if (this.isSubmitted) this.reValidate();
+        } else {
+            this.resetQuiz();
+        }
+    }
 },
 
-// 輔助方法：重新校驗填空題顏色
 reValidate() {
   this.activeAnswers.forEach((ans, i) => {
       const val = (this.userInputs[i] || "").trim();
-      this.results[i] = val.length >= 4 && ans.includes(val);
+      // 重新载入时也使用模糊逻辑校验
+      const similarity = this.calculateSimilarity(val, ans);
+      this.fuzzyScores[i] = similarity;
+      this.results[i] = (val.length >= 2 && ans.includes(val)) || similarity >= 0.9;
   });
   if(this.currentQ.supplies) {
       this.supplyCorrect = this.currentQ.supplies.some(s => this.supplyInput.includes(s));
   }
 },
 
-// 輔助方法：獲取當前模塊列表
-getListByModule() {
-  const map = { emergency: this.emergencyData, machine: this.machineData, special: this.specialData, essay: this.essayData };
-  return map[this.currentModule] || [];
-},
-        next() {
-          this.saveCurrentState();
-            // 1. 如果是选择题模式
-            if(this.state === 'choice') {
-                if(this.curChoiceIdx < this.choiceList.length - 1) {
-                    this.curChoiceIdx++; 
-                    this.loadCurrentState();
-                    //this.currentQ = this.choiceList[this.curChoiceIdx];
-                    //this.isSubmitted = false; 
-                    //this.tempSelect = null;
-                } else { 
-                    alert("选择题练习结束");
-                    this.goBack(); 
-                }
-            } 
-            // 2. 如果是其他模式（应急、问答、规程等）
-            else { 
-                // 根据当前模块名称，找到对应的数据源数组
-                let list = [];
-                if(this.currentModule === 'emergency') list = this.emergencyData;
-                else if(this.currentModule === 'machine') list = this.machineData;
-                else if(this.currentModule === 'special') list = this.specialData;
-                else if(this.currentModule === 'essay') list = this.essayData;
-
-                // 判断是否还有下一题
-                if(this.currentIdx < list.length - 1) {
-                    this.currentIdx++; // 索引加1
-                    // 读取下一题数据（深拷贝）
-                    this.currentQ = JSON.parse(JSON.stringify(list[this.currentIdx]));
-                    this.resetQuiz(); // 重置输入框状态
-                } else {
-                    // 已经是最后一题了
-                    alert("本章节练习完成！");
-                    this.goBack();
-                }
-            }
-            this.saveProgress();
-            this.saveCurrentState();
-        },
-        getInputClass(i) {
-            return this.isSubmitted ? (this.results[i] ? 'input-correct' : 'input-error') : '';
+next() {
+    this.saveCurrentState();
+    if(this.state === 'choice') {
+        if(this.curChoiceIdx < this.workingList.length - 1) {
+            this.curChoiceIdx++; 
+            this.loadCurrentState();
+        } else { 
+            alert("本组练习结束");
+            this.goBack(); 
         }
+    } else { 
+        if(this.currentIdx < this.workingList.length - 1) {
+            this.currentIdx++; 
+            // 注意：这里不能直接覆盖 currentQ，而是通过 loadCurrentState 来加载新题状态
+            this.loadCurrentState();
+        } else {
+            alert("本章节练习完成！");
+            this.goBack();
+        }
+    }
+    this.saveProgress();
+},
+
+getInputClass(i) {
+    return this.isSubmitted ? (this.results[i] ? 'input-correct' : 'input-error') : '';
+}
     },
+    
     mounted() {
-      // 1. 检查本地存储中是否有我们定义的键名（例如 'qsa_progress'）
-      const savedData = localStorage.getItem('qsa_progress');
-      
-      // 2. 如果存在数据，将标志位设为 true
+      const savedData = localStorage.getItem('qsa_v15_progress');
       if (savedData) {
           this.isRecoverable = true;
       }
@@ -1261,4 +1344,3 @@ getListByModule() {
 </script>
 </body>
 </html>
-
