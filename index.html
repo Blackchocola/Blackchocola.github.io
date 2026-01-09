@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>加油站岗位技能考核系统 V1.5 (增强版)</title>
+    <title>加油站岗位技能考核系统 V1.6</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <style>
         :root { --primary: #2563eb; --success: #059669; --error: #dc2626; --bg: #f1f5f9; --text: #1e293b; }
@@ -49,7 +49,7 @@
 <body>
 
 <div id="app" class="container">
-    <h2 class="header-title">加油站技能考核系统 V1.5</h2>
+    <h2 class="header-title">加油站技能考核系统 V1.6</h2>
     <div class="nav-path">📍 {{ navPath }}</div>
 
     <div v-if="state === 'idle'" class="menu-list">
@@ -1184,25 +1184,40 @@ new Vue({
           this.stats.total++; 
           
           let isAllCorrect = true;
-          this.activeAnswers.forEach((ans, i) => {
-              const val = (this.userInputs[i] || "").trim();
-              
-              // 使用模糊匹配算法
-              const similarity = this.calculateSimilarity(val, ans);
-              this.fuzzyScores[i] = similarity;
+          const standardAnswers = this.activeAnswers; // 题库答案数组
+          const userInputs = this.userInputs; // 用户输入数组
 
-              // 判定逻辑：长度>=4 且 (包含关键字 或 相似度>0.9)
-              const isMatch = (val.length >= 2 && ans.includes(val)) || similarity >= 0.9;
-              
-              this.results[i] = isMatch;
-              // 更新：为了显示，将分值存入 Vue 响应式数组
-              this.$set(this.fuzzyScores, i, similarity);
+          // 判定逻辑
+          userInputs.forEach((inputVal, i) => {
+              const val = (inputVal || "").trim();
+              let foundMatch = false;
+              let bestSim = 0;
 
-              if (!isMatch) isAllCorrect = false;
+              // --- 逻辑分支：应急处置需顺序一致，其他模式不限顺序 ---
+              if (this.currentModule === 'emergency') {
+                  // 必须匹配对应索引的答案
+                  const targetAns = standardAnswers[i];
+                  bestSim = this.calculateSimilarity(val, targetAns);
+                  foundMatch = (val.length >= 2 && targetAns.includes(val)) || bestSim >= 0.6; // 60%阈值
+              } else {
+                  // 无需顺序一致：遍历题库所有答案，只要匹配上其中任何一个未被匹配的即可
+                  standardAnswers.forEach(ans => {
+                      const sim = this.calculateSimilarity(val, ans);
+                      if ((val.length >= 2 && ans.includes(val)) || sim >= 0.6) {
+                          foundMatch = true;
+                          if(sim > bestSim) bestSim = sim;
+                      }
+                  });
+              }
+
+              this.$set(this.fuzzyScores, i, bestSim);
+              this.$set(this.results, i, foundMatch);
+
+              if (!foundMatch) isAllCorrect = false;
           });
           
+          // 应急物资处理 (保持不变)
           if(this.currentQ.supplies) {
-              // 物资也进行简单的包含匹配，不适用过于复杂的模糊逻辑以免误判
               this.supplyCorrect = this.currentQ.supplies.some(s => this.supplyInput.includes(s));
               if (!this.supplyCorrect) isAllCorrect = false;
           }
@@ -1214,6 +1229,35 @@ new Vue({
           }
           this.saveCurrentState();
           this.saveProgress();
+      },
+
+      // 同步修改 reValidate 函数（用于进度恢复时的显示）
+      reValidate() {
+          const standardAnswers = this.activeAnswers;
+          this.userInputs.forEach((inputVal, i) => {
+              const val = (inputVal || "").trim();
+              let foundMatch = false;
+              let bestSim = 0;
+
+              if (this.currentModule === 'emergency') {
+                  const targetAns = standardAnswers[i];
+                  bestSim = this.calculateSimilarity(val, targetAns);
+                  foundMatch = (val.length >= 2 && targetAns.includes(val)) || bestSim >= 0.6;
+              } else {
+                  standardAnswers.forEach(ans => {
+                      const sim = this.calculateSimilarity(val, ans);
+                      if ((val.length >= 2 && ans.includes(val)) || sim >= 0.6) {
+                          foundMatch = true;
+                          if(sim > bestSim) bestSim = sim;
+                      }
+                  });
+              }
+              this.$set(this.fuzzyScores, i, bestSim);
+              this.$set(this.results, i, foundMatch);
+          });
+          if(this.currentQ.supplies) {
+              this.supplyCorrect = this.currentQ.supplies.some(s => this.supplyInput.includes(s));
+          }
       },
 
   saveProgress() {
